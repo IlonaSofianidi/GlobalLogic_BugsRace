@@ -13,10 +13,7 @@ import org.springframework.util.StringUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -65,6 +62,17 @@ public class ProductServiceImpl implements ProductService {
         log.info("Product executor stopped.");
     }
 
+    @Override
+    public void homework() {
+        final int BUGS_RACERS = 5;
+        CountDownLatch countDownLatch = new CountDownLatch(BUGS_RACERS);
+        for (int i = 1; i <= BUGS_RACERS; i++) {
+            new BugsRacer(countDownLatch, i).start();
+            String msg = String.format("BugRacer %d was created ", i);
+            log.info(msg);
+        }
+    }
+
     private void validateId(String id) {
 
         if (StringUtils.isEmpty(id)) {
@@ -94,4 +102,37 @@ public class ProductServiceImpl implements ProductService {
                 .build();
     }
 
+    class BugsRacer extends Thread {
+        private CountDownLatch countDownLatch;
+        private int bugNumber;
+        private int position;
+        private int track_length = 20;
+        private int randomStep = ThreadLocalRandom.current().nextInt(1, 5);
+
+        BugsRacer(CountDownLatch countDownLatch, int bugNumber) {
+            this.countDownLatch = countDownLatch;
+            this.bugNumber = bugNumber;
+        }
+
+        @Override
+        public void run() {
+            String msg = String.format("%d is at the starting position", bugNumber);
+            log.info(msg);
+            countDownLatch.countDown(); // bugsRacer is at start
+
+            try {
+                countDownLatch.await(); //waiting for others to start
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            while (position < track_length) {
+                position += randomStep;
+                String format_msg = String.format("BugsRacer %d is at %d, step is %d", bugNumber, position, randomStep);
+                System.out.println(format_msg);
+            }
+            String finish_msg = String.format("%d finished the race", bugNumber);
+            log.info(finish_msg);
+        }
+    }
 }
+

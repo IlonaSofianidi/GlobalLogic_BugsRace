@@ -46,7 +46,7 @@ public class ProductController {
 
     @GetMapping(value = "/homework", produces = APPLICATION_JSON_VALUE)
     public ResponseEntity homework() {
-
+        productService.homework();
 
 
         return ResponseEntity.ok().build();
