@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ConcurrentTaskService taskService;
+    private final int BUGS_RACERS = 5;
+    private Map<String, Long> raceResults = new ConcurrentHashMap<>(BUGS_RACERS);
 
     public GetProductInfoResponse getProductInfo(String productId) {
 
@@ -64,13 +66,19 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public void homework() {
-        final int BUGS_RACERS = 5;
-        CountDownLatch countDownLatch = new CountDownLatch(BUGS_RACERS);
+        CountDownLatch start_latch = new CountDownLatch(BUGS_RACERS);
+        CountDownLatch finish_latch = new CountDownLatch(BUGS_RACERS);
         for (int i = 1; i <= BUGS_RACERS; i++) {
-            new BugsRacer(countDownLatch, i).start();
+            new BugsRacer(start_latch, finish_latch, "BugRacer #" + i).start();
             String msg = String.format("BugRacer %d was created ", i);
             log.info(msg);
         }
+        try {
+            finish_latch.await(); //waiting for others to finish
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        raceResults.entrySet().stream().sorted(Map.Entry.comparingByValue()).forEach(System.out::println);
     }
 
     private void validateId(String id) {
@@ -104,19 +112,21 @@ public class ProductServiceImpl implements ProductService {
 
     class BugsRacer extends Thread {
         private CountDownLatch countDownLatch;
-        private int bugNumber;
+        private CountDownLatch finish_latch;
+        private String bugRacer_name;
         private int position;
         private int track_length = 20;
         private int randomStep = ThreadLocalRandom.current().nextInt(1, 5);
 
-        BugsRacer(CountDownLatch countDownLatch, int bugNumber) {
+        BugsRacer(CountDownLatch countDownLatch, CountDownLatch finish_latch, String bugRacer_name) {
             this.countDownLatch = countDownLatch;
-            this.bugNumber = bugNumber;
+            this.bugRacer_name = bugRacer_name;
+            this.finish_latch = finish_latch;
         }
 
         @Override
         public void run() {
-            String msg = String.format("%d is at the starting position", bugNumber);
+            String msg = String.format("%s is at the starting position", bugRacer_name);
             log.info(msg);
             countDownLatch.countDown(); // bugsRacer is at start
 
@@ -125,13 +135,20 @@ public class ProductServiceImpl implements ProductService {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            long start_time = System.nanoTime();
             while (position < track_length) {
                 position += randomStep;
-                String format_msg = String.format("BugsRacer %d is at %d, step is %d", bugNumber, position, randomStep);
-                System.out.println(format_msg);
+                String format_msg = String.format("%s is at %d, step is %d", bugRacer_name, position, randomStep);
+                log.info(format_msg);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             }
-            String finish_msg = String.format("%d finished the race", bugNumber);
-            log.info(finish_msg);
+            long race_duration = (System.nanoTime() - start_time);
+            raceResults.put(bugRacer_name, TimeUnit.MICROSECONDS.convert(race_duration, TimeUnit.NANOSECONDS));
+            finish_latch.countDown();
         }
     }
 }
